@@ -1,6 +1,6 @@
 const express     = require('express');
-const Post        = require('../models/Post');
-const Comment     = require('../models/Comment');
+const Post        = require('../models').Post;
+const Comment     = require('../models').Comment;
 const commentAuth = require('../myMiddleware/commentAuth');
 const moment      = require('moment');
 
@@ -22,18 +22,18 @@ Router.route('/posts')
       res.json({Posts})
     })
     .catch(error => {
-      res.status(500).send(error, {message: 'error finding posts'});
+      res.status(500).send(error);
     })
   })
   .post((req, res) => {
     const date = moment().format("MMM Do YY")
-    User.findById(req.user.id, function (err, user) {
+    User.findById(req.body.author, function (err, user) {
       if (user.role === 'admin') {
         Post.create({
-          author: req.user._id,
-          title : req.body.title,
-          text  : req.body.text,
-          date  : date
+          author : req.body.author,
+          title  : req.body.title,
+          text   : req.body.text,
+          date   : date
         })
         .then (Post => {
           res.json({Post})
@@ -47,7 +47,7 @@ Router.route('/posts')
 
 Router.route('/posts/:id')
   .get((req, res) => {
-    Post.findById(req.params.id, {
+    Post.findById(req.body.author, {
       include: [{
         model: Comment,
         as   : 'postComments'
@@ -125,7 +125,7 @@ Router.route('/posts/:id/comments')
       Comment.create({
         title   : req.body.title,
         body    : req.body.text,
-        author  : req.body.user,
+        author  : req.body.author,
         picture : req.body.picture,
         postId  : req.params.id,
         date    : date
@@ -156,7 +156,7 @@ Router.route('/posts/comments/:commentId')
     if (user) {
       Comment.findById(req.params.commentId)
       .then(Comment => {
-        if (user === comment.author) {
+        if (user === comment.author || user.role === 'admin') {
           Comment.update({
             body     : req.body.text  ? req.body.text  : Comment.body,
             title    : req.body.title ? req.body.title : Comment.title,

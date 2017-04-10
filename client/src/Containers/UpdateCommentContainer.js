@@ -1,6 +1,6 @@
 import React from 'react';
 import $ from 'jquery';
-import UpdateCommentForm from './UpdateCommentForm';
+import UpdateCommentForm from '../Views/UpdateCommentForm';
 
 var UpdateCommentContainer = React.createClass({
   getInitialState: function () {

@@ -1,6 +1,5 @@
 import React from 'react';
 import $ from 'jquery';
-import { Table } from 'react-bootstrap';
 
 var PortfolioComponent = React.createClass({
   getInitialState: function () {

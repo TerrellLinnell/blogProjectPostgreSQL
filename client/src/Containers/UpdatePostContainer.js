@@ -1,6 +1,6 @@
 import React from 'react';
 import $ from 'jquery';
-import UpdatePostForm from './UpdatePostForm';
+import UpdatePostForm from '../Views/UpdatePostForm';
 
 var UpdatePostContainer = React.createClass({
   getInitialState: function () {

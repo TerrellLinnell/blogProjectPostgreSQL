@@ -1,7 +1,7 @@
 import React from 'react';
-import BlogForm from './BlogForm';
+import BlogForm from '../Views/BlogForm';
 import $ from 'jquery';
-import PostsDisplay from './PostsDisplay';
+import PostsDisplay from '../Views/PostsDisplay';
 
 var Blog = React.createClass ({
   getInitialState: function () {
