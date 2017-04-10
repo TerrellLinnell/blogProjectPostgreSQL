@@ -1,206 +1,203 @@
-//all posts route   /api/posts use get method and post method in this route
-var express = require('express');
-var User = require('../models/user');
-var Post = require('../models/Post');
-var Comment = require('../models/Comment');
+const express     = require('express');
+const Post        = require('../models/Post');
+const Comment     = require('../models/Comment');
+const commentAuth = require('../myMiddleware/commentAuth');
+const moment      = require('moment');
 
+const Router = new express.Router();
 
-var Router = new express.Router();
+Router.use((req, res, next) => {
+  return next();
+});
 
 Router.route('/posts')
-.get(function (req, res) {
-  Post.find()
-    .populate('author')
-    .populate({
-      path: 'comments',
-      populate: {path: 'author'}
+  .get((req, res) => {
+    Post.findAll({
+      include: [{
+        model: Comment,
+        as   : 'postComments'
+      }]
     })
-    .exec(function (err, posts) {
-    if (err) {
-      console.log(err);
-    } else {
-      res.json(posts);
-    }
-  });
-})
-.post(function (req, res) {
-  User.findById(req.user.id, function (err, user) {
-  if (user.role === 'admin') {
-  var post = new Post({
-    author: req.user._id,
-    title: req.body.title,
-    text: req.body.text
-    // date: req.body.date,
-  });
-  post.save(function (err, post) {
-    if (err) {
-      res.json({message: 'There was an error saving this post'});
-    } else {
-      res.json(post);
-    }
-  });
-} else {
-  res.json ({error: 'only the admin can create posts'});
-}
-});
-});
-
-Router.route('/posts/:id')
-  .get(function (req, res) {
-    Post.findById(req.params.id)
-      .exec(function (err, post) {
-        if (err) {
-          res.json({ message: 'there was an error finding this post' });
-        } else {
-          res.json(post);
-        }
-      })
+    .then(Posts => {
+      res.json({Posts})
     })
-  .put(function (req, res) {
-    Post.findById(req.params.id, function (err, post) {
-      if (err) {
-        res.json({message: 'could not find Post.'});
-      } else {
-        post.author = req.body.author ? req.body.author : post.author;
-        post.title = req.body.title ? req.body.title : post.title;
-        post.text = req.body.text ? req.body.text : post.text;
-        post.comments = req.body.comments ? req.body.comments : post.comments;
-        post.date = req.body.date ? req.body.date : post.date;
-        post.save(function (err) {
-          if (err) {
-            res.json(err)
-          } else {
-            res.json({message: 'Post updated'})
-          }
+    .catch(error => {
+      res.status(500).send(error, {message: 'error finding posts'});
+    })
+  })
+  .post((req, res) => {
+    const date = moment().format("MMM Do YY")
+    User.findById(req.user.id, function (err, user) {
+      if (user.role === 'admin') {
+        Post.create({
+          author: req.user._id,
+          title : req.body.title,
+          text  : req.body.text,
+          date  : date
+        })
+        .then (Post => {
+          res.json({Post})
+        })
+        .catch(error => {
+          res.status(500).send(error, {message: 'only the admin can create a post'});
         })
       }
     })
   })
-  .delete(function (req, res) {
-    User.findById(req.user.id, function (err, user) {
-      if (user.role === 'admin') {
-        Post.remove({ _id: req.params.id }, function (err, data){
-          if (err ){
-            console.log(err);
-          } else {
-          res.json({message: 'post deleted'});
-          }
-        });
-      } else {
-        res.json({message: 'only admins can delete posts'})
-      }
+
+Router.route('/posts/:id')
+  .get((req, res) => {
+    Post.findById(req.params.id, {
+      include: [{
+        model: Comment,
+        as   : 'postComments'
+      }]
     })
-  });
+    .then(Post => {
+      res.json({Post})
+    })
+    .catch(error => {
+      res.status(500).send(error, {message: 'There was an error finding this post'})
+    })
+  })
+  .put((req, res) => {
+    const date = moment().format("MMM Do YY")
+    if (user.role === 'admin') {
+      Post.findById(req.params.id)
+      .then(Post => {
+        Post.update({
+          author  : req.body.author ? req.body.author : post.author,
+          title   : req.body.title  ? req.body.title  : Post.Title,
+          text    : req.body.text   ? req.body.text   : Post.text,
+          date    : date
+        })
+        .then(Post => {
+          res.json({Post})
+        })
+        .catch(error => {
+          res.status(500).send(error, {message: 'failed to update post'})
+        })
+      })
+      .catch(error => {
+        res.status(500).send(error, {message: 'Could not find post to update'})
+      })
+    } else {
+      res.json({message: 'only the admin can update a post'})
+    }
+  })
+  .delete((req, res) => {
+    if (user.role === 'admin') {
+      Post.findById(req.params.id)
+      .then(Post => {
+        Post.destroy()
+        .then(() => {
+          res.json({Message: 'Post deleted'})
+        })
+        .catch(error => {
+          res.status(500).send(error, {message: 'failed to delete post'})
+        })
+      })
+      .catch(error => {
+        res.status(500).send(error, {message: 'failed to find post'})
+      })
+    } else {
+      res.json({message: 'only the admin can delete a post'})
+    }
+  })
 
 Router.route('/posts/:id/comments')
-.post(function (req, res) {
-  if(req.user) {
-  var comment = new Comment({
-    author: req.user._id,
-    text: req.body.text
-    // date: req.body.date,
-  });
-  comment.save(function (err, comment) {
-    if (err) {
-      res.json({message: 'There was an error posting this comment'});
+  .get((req, res) => {
+    Comment.findAll({
+      where: {
+        postId: req.params.id
+      }
+    })
+    .then(Comment => {
+      res.json({Comment})
+    })
+    .catch(error => {
+      res.status(500).send(error, {message: "Failed to find Comments"})
+    })
+  })
+  .post((req, res) => {
+    const date = moment().format("MMM Do YY")
+    if(req.user) {
+      Comment.create({
+        title   : req.body.title,
+        body    : req.body.text,
+        author  : req.body.user,
+        picture : req.body.picture,
+        postId  : req.params.id,
+        date    : date
+      })
+      .then(Comment => {
+        res.json({Comment})
+      })
+      .catch(error => {
+        res.status(500).send(error, {message: 'failed to create comment'})
+      })
     } else {
-      Post.findById(req.params.id, function (err, post) {
-        if (err) {
-          res.json({ message: 'there was an error finding this post' });
-        } else {
-          post.comments.push(comment._id)
-          post.save(function (err, data) {
-            if (err) {
-              res.json({message: 'error posting this comment'})
-            } else {
-              res.json(post)
-            }
-          });
-        }
-      });
+      res.status(500).send(error, {message: 'You must be logged in to comment'})
     }
   });
-} else {
-  res.json({message: 'you have to be logged in to post a comment'})
-}
-});
-
 
 Router.route('/posts/comments/:commentId')
-.get(function (req, res) {
-  console.log('looking for a comment');
-  Comment.findById(req.params.commentId)
-    .populate('author')
-    .exec(function (err, comment) {
-      if (err) {
-        res.json({ message: 'there was an error finding this comment' });
-      } else {
-        res.json(comment);
-      }
-    });
+  .get((req, res) => {
+    Comment.findById(req.params.commentId)
+    .then(Comment => {
+      res.json({Comment})
+    })
+    .catch(error => {
+      res.status(500).send(error, {message: 'failed to get this specific comment'})
+    })
   })
-.put(function (req, res) {
-  Comment.findById(req.params.commentId, function (err, comment) {
-    if (err) {
-      console.log('Error finding comment');
-      res.json({'error' : err})
-    } else {
-      if (req.user) {
-      if (comment.author.toString() === req.user._id.toString()) {
-        comment.text = req.body.text ? req.body.text : comment.text;
-        comment.save(function (err, data) {
-          if(err) {
-            res.json({error: err})
-          } else {
-            res.json({message: 'updated comment'})
-          }
-        });
-      } else {
-        res.json({message: 'you are not allowed to update this comment'})
-      }
-    } else {
-      res.json({error: 'you must be logged in to update comments'})
-    }
-    }
-  })
-})
-
-.delete(function (req, res) {
-  Comment.findById(req.params.commentId)
-    .populate('author')
-    .exec(function (err, comment) {
-      User.findById(req.user._id, function (err, user) {
-        if (err) {
-          res.json({message: 'you must log in to delete comments'})
+  .put((req, res) => {
+    const user = req.body.user;
+    if (user) {
+      Comment.findById(req.params.commentId)
+      .then(Comment => {
+        if (user === comment.author) {
+          Comment.update({
+            body     : req.body.text  ? req.body.text  : Comment.body,
+            title    : req.body.title ? req.body.title : Comment.title,
+            modified : true
+          })
+          .then(Comment => {
+            res.json({Comment})
+          })
+          .catch(error => {
+            res.status(500).send(error, {message: 'Failed to update comment'})
+          })
         } else {
-          if (user.role === 'admin' || comment.author._id === req.user._id) {
-            comment.remove(function (err, data){
-              if (err ){
-                console.log(err);
-              } else {
-              res.json({message: 'comment deleted'});
-              }
-            });
-          } else {
-            res.json({message: 'only admins or the creator of the comment can delete this comment'})
-          }
+          res.status(500).send({message: 'you are not allowed to update this comment'})
         }
       })
+      .catch(error => {
+        res.status(500).send(error, {message: 'failed to find this comment'})
+      })
+    } else {
+      res.status(500).send({message: 'you must be logged in to update your comments'})
+    }
   })
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  .delete((req, res) => {
+    const user = req.body.user
+    if (user === comment.author || user.role === 'admin') {
+      Comment.findById(req.params.commentId)
+      .then(Comment => {
+        Comment.destroy()
+        .then(() => {
+          res.json({message: 'comment deleted'})
+        })
+        .catch(error => {
+          res.status(500).send(error, {message: 'failed t delete comment'})
+        })
+      })
+      .catch(error => {
+        res.status(500).send(error, {message: 'failed to find this comment'})
+      })
+    } else {
+      res.json({message: 'only the creator of the comment or admin can delete this comment'})
+    }
+  });
 
 module.exports = Router;
